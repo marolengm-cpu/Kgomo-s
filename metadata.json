@@ -1,0 +1,7 @@
+{
+  "name": "Kgomo's Restaurant & Meal Prep",
+  "description": "A premium-casual family restaurant in Pretoria East featuring wood-fired pizzas, supervised kids entertainment, and a macro-balanced meal prep subscription service.",
+  "requestFramePermissions": [
+    "geolocation"
+  ]
+}
