@@ -1,5 +1,5 @@
-
 export enum MenuCategory {
+  // Food
   BREAKFAST = 'Breakfast',
   STARTERS = 'Starters',
   SALADS = 'Salads',
@@ -12,10 +12,15 @@ export enum MenuCategory {
   GRILLS = 'Grills',
   DESSERTS = 'Desserts',
   KIDS = 'Kids',
+  // Drinks
+  COFFEE = 'Coffee',
+  TEA_HOT = 'Tea/Hot',
   COCKTAILS = 'Cocktails',
   MOCKTAILS = 'Mocktails',
-  HOUSE_SPECIALS = 'House Specials',
-  BEERS = 'Beers'
+  BEERS = 'Beers & Cider',
+  WINE = 'Wine & Sparkling',
+  SPIRITS = 'Spirits',
+  SOFTS = 'Soft Drinks'
 }
 
 export interface MenuItem {

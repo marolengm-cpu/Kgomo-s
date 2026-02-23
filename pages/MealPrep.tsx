@@ -23,30 +23,11 @@ const MealPrep: React.FC = () => {
     e.preventDefault();
     setIsSubmitting(true);
 
-    const formData = new FormData(e.currentTarget);
-    // Add custom configuration to formData
-    formData.append('plan_meals_per_week', mealCount.toString());
-    formData.append('plan_macro_ratio', ratio);
-    formData.append('plan_portion_size', `${portion}g`);
-    formData.append('plan_dietary_preferences', dietary.join(', '));
-    formData.append('plan_weekly_price', `R ${calculatePrice()}`);
-
-    try {
-      const response = await fetch('https://formspree.io/f/xeeowazp', {
-        method: 'POST',
-        body: formData,
-        headers: {
-          'Accept': 'application/json'
-        }
-      });
-      if (response.ok) {
-        setStep(3);
-      }
-    } catch (error) {
-      console.error('Subscription error:', error);
-    } finally {
-      setIsSubmitting(false);
-    }
+    // Simulate submission
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    setStep(3);
+    setIsSubmitting(false);
   };
 
   if (step === 3) {
@@ -228,12 +209,9 @@ const MealPrep: React.FC = () => {
                           <input name="delivery_notes" type="text" placeholder="Special Delivery Notes" className="w-full px-6 py-4 rounded-2xl border-2 border-rustic-mint/20 bg-white focus:border-rustic-orange outline-none" />
                         </div>
                         <div className="space-y-4">
-                          <label className="block text-xs font-bold text-rustic-green uppercase tracking-[0.2em] flex items-center gap-2"><CreditCard size={14} /> Payment Details (Demo Only)</label>
-                          <input name="cardholder_name" type="text" placeholder="Cardholder Name" className="w-full px-6 py-4 rounded-2xl border-2 border-rustic-mint/20 bg-white focus:border-rustic-orange outline-none" required />
-                          <div className="grid grid-cols-2 gap-4">
-                            <input name="expiry" type="text" placeholder="MM/YY" className="w-full px-6 py-4 rounded-2xl border-2 border-rustic-mint/20 bg-white focus:border-rustic-orange outline-none" required />
-                            <input name="cvv_stub" type="text" placeholder="CVV" className="w-full px-6 py-4 rounded-2xl border-2 border-rustic-mint/20 bg-white focus:border-rustic-orange outline-none" required />
-                          </div>
+                          <label className="block text-xs font-bold text-rustic-green uppercase tracking-[0.2em] flex items-center gap-2"><CreditCard size={14} /> Account Details</label>
+                          <input name="cardholder_name" type="text" placeholder="Full Name" className="w-full px-6 py-4 rounded-2xl border-2 border-rustic-mint/20 bg-white focus:border-rustic-orange outline-none mb-4" required />
+                          <input name="email" type="email" placeholder="Email Address" className="w-full px-6 py-4 rounded-2xl border-2 border-rustic-mint/20 bg-white focus:border-rustic-orange outline-none" required />
                         </div>
                       </div>
 

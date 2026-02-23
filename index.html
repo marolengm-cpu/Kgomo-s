@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -6,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Kgomo's | Premium Family Dining & Meal Prep</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400;1,700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <script>
       tailwind.config = {
         theme: {
@@ -15,7 +14,7 @@
               rustic: {
                 green: '#778979',
                 mint: '#ccdcc1',
-                cream: '#e3d6ab',
+                cream: '#fdfbf7',
                 tan: '#a9916b',
                 orange: '#d78258',
                 dark: '#3d2b1f',
@@ -24,6 +23,30 @@
             fontFamily: {
               serif: ['Playfair Display', 'serif'],
               sans: ['Inter', 'sans-serif'],
+            },
+            animation: {
+              fadeIn: 'fadeIn 0.8s ease-out forwards',
+              slideUp: 'slideUp 0.6s ease-out forwards',
+              scaleIn: 'scaleIn 0.4s ease-out forwards',
+              bounceIn: 'bounceIn 1s cubic-bezier(0.36, 0, 0.66, -0.56) forwards',
+            },
+            keyframes: {
+              fadeIn: {
+                '0%': { opacity: '0' },
+                '100%': { opacity: '1' },
+              },
+              slideUp: {
+                '0%': { transform: 'translateY(20px)', opacity: '0' },
+                '100%': { transform: 'translateY(0)', opacity: '1' },
+              },
+              scaleIn: {
+                '0%': { transform: 'scale(0.95)', opacity: '0' },
+                '100%': { transform: 'scale(1)', opacity: '1' },
+              },
+              bounceIn: {
+                '0%': { transform: 'scale(0.8)', opacity: '0' },
+                '100%': { transform: 'scale(1)', opacity: '1' },
+              }
             }
           }
         }
@@ -32,15 +55,17 @@
     <style>
         body {
             font-family: 'Inter', sans-serif;
+            -webkit-font-smoothing: antialiased;
         }
         h1, h2, h3, .font-serif {
             font-family: 'Playfair Display', serif;
         }
-        .wood-accent {
-            background-color: #3d2b1f;
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
         }
-        .earth-tone {
-            background-color: #e3d6ab;
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
         }
     </style>
 <script type="importmap">
@@ -50,7 +75,8 @@
     "react/": "https://esm.sh/react@^19.2.3/",
     "react": "https://esm.sh/react@^19.2.3",
     "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
-    "react-router-dom": "https://esm.sh/react-router-dom@^7.11.0"
+    "react-router-dom": "https://esm.sh/react-router-dom@^7.11.0",
+    "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@^2.48.1"
   }
 }
 </script>

@@ -1,28 +1,33 @@
+
 import React, { useState } from 'react';
-import { MapPin, Phone, Mail, Clock, Send, Bike, ExternalLink, CheckCircle2 } from 'lucide-react';
+import { MapPin, Phone, Mail, Clock, Send, Bike, ExternalLink, CheckCircle2, AlertCircle } from 'lucide-react';
+import { db } from '../lib/db';
 
 const Contact: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsSubmitting(true);
+    setError(null);
 
     const formData = new FormData(e.currentTarget);
+    const inquiryData = {
+      name: formData.get('name'),
+      email: formData.get('email'),
+      subject: formData.get('subject'),
+      message: formData.get('message')
+    };
+
     try {
-      const response = await fetch('https://formspree.io/f/xeeowazp', {
-        method: 'POST',
-        body: formData,
-        headers: {
-          'Accept': 'application/json'
-        }
-      });
-      if (response.ok) {
-        setIsSuccess(true);
-      }
-    } catch (error) {
-      console.error('Submission error:', error);
+      const { error: dbError } = await db.from('contact_inquiries').insert(inquiryData);
+      if (dbError) throw dbError;
+      setIsSuccess(true);
+    } catch (err: any) {
+      console.error('Contact submission failed:', err);
+      setError('Failed to send message to 16ueg_u4t4d. Please try again or call us directly.');
     } finally {
       setIsSubmitting(false);
     }
@@ -32,14 +37,18 @@ const Contact: React.FC = () => {
     <div className="pt-24 pb-24 bg-white">
       <div className="container mx-auto px-4 md:px-6">
         <div className="max-w-6xl mx-auto">
+          {error && (
+            <div className="mb-8 p-4 bg-red-50 border border-red-100 rounded-2xl flex items-center gap-3 text-red-600 animate-fadeIn">
+              <AlertCircle size={20} />
+              <span className="font-medium text-sm">{error}</span>
+            </div>
+          )}
           <div className="text-center mb-16">
             <h1 className="text-5xl font-bold mb-6 italic text-rustic-dark">Get in Touch</h1>
             <p className="text-xl text-rustic-green">Visit us in the heart of Pretoria East or reach out online.</p>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
-            
-            {/* Contact Details */}
             <div className="space-y-12">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <ContactInfo 
@@ -50,12 +59,15 @@ const Contact: React.FC = () => {
                 <ContactInfo 
                   icon={<Phone className="text-rustic-orange" />} 
                   title="Phone Us" 
-                  lines={['+27 12 345 6789', '+27 82 987 6543']} 
+                  lines={[
+                    'GM Modisa: 084 292 0000', 
+                    'Chef Kgola: 067 740 7650'
+                  ]} 
                 />
                 <ContactInfo 
                   icon={<Mail className="text-rustic-orange" />} 
                   title="Email Us" 
-                  lines={['hello@kgomos.co.za', 'events@kgomos.co.za']} 
+                  lines={['info@kgomos.co.za']} 
                 />
                 <ContactInfo 
                   icon={<Clock className="text-rustic-orange" />} 
@@ -64,7 +76,6 @@ const Contact: React.FC = () => {
                 />
               </div>
 
-              {/* Delivery Partners Callout */}
               <div className="bg-rustic-cream/20 p-8 rounded-3xl border border-rustic-mint/30 shadow-sm">
                 <div className="flex items-center gap-3 mb-6">
                   <div className="p-2 bg-rustic-orange text-white rounded-lg">
@@ -74,33 +85,16 @@ const Contact: React.FC = () => {
                 </div>
                 <p className="text-rustic-green text-sm mb-6">Can't make it to us? We'll come to you via our trusted delivery partners.</p>
                 <div className="flex flex-col sm:flex-row gap-4">
-                  <a 
-                    href="https://www.ubereats.com" 
-                    target="_blank" 
-                    rel="noopener noreferrer" 
-                    className="flex-1 bg-[#06C167] text-white px-6 py-4 rounded-2xl font-bold flex items-center justify-center gap-3 hover:shadow-lg transition-all"
-                  >
-                    Uber Eats <ExternalLink size={16} />
+                  <a href="https://www.ubereats.com" target="_blank" rel="noopener noreferrer" className="flex-1 bg-[#06C167] text-white px-6 py-4 rounded-2xl font-bold flex items-center justify-center gap-3 hover:shadow-lg transition-all">
+                    Uber Eats
                   </a>
-                  <a 
-                    href="https://www.mrdfood.com" 
-                    target="_blank" 
-                    rel="noopener noreferrer" 
-                    className="flex-1 bg-[#e21a23] text-white px-6 py-4 rounded-2xl font-bold flex items-center justify-center gap-3 hover:shadow-lg transition-all"
-                  >
-                    Mr D Food <ExternalLink size={16} />
+                  <a href="https://www.mrdfood.com" target="_blank" rel="noopener noreferrer" className="flex-1 bg-[#e21a23] text-white px-6 py-4 rounded-2xl font-bold flex items-center justify-center gap-3 hover:shadow-lg transition-all">
+                    Mr D Food
                   </a>
                 </div>
               </div>
-
-              {/* Map Embed Placeholder */}
-              <div className="h-64 bg-rustic-cream/10 rounded-[2rem] overflow-hidden border border-rustic-mint relative flex items-center justify-center">
-                 <MapPin className="text-rustic-orange opacity-20 absolute" size={120} />
-                 <p className="text-rustic-green font-bold relative z-10 italic">Google Maps Integration</p>
-              </div>
             </div>
 
-            {/* Contact Form */}
             <div className="bg-rustic-dark p-10 md:p-12 rounded-[3rem] text-white shadow-2xl relative overflow-hidden">
               <div className="absolute top-0 right-0 w-64 h-64 bg-rustic-orange opacity-5 rounded-full -translate-y-1/2 translate-x-1/2"></div>
               
@@ -156,7 +150,6 @@ const Contact: React.FC = () => {
                 </>
               )}
             </div>
-
           </div>
         </div>
       </div>

@@ -1,11 +1,41 @@
 
-import React from 'react';
-import { Shield, Sparkles, Cake, Star, UserCheck, Timer } from 'lucide-react';
+import React, { useState } from 'react';
+import { Shield, Sparkles, Cake, Star, UserCheck, Timer, CheckCircle2, Send, ArrowRight, AlertCircle } from 'lucide-react';
+import { db } from '../lib/db';
 
 const Kids: React.FC = () => {
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSuccess, setIsSuccess] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleInquiry = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    setError(null);
+
+    const formData = new FormData(e.currentTarget);
+    const inquiryData = {
+      parent_name: formData.get('name'),
+      email: formData.get('email'),
+      proposed_date: formData.get('date'),
+      kids_count: parseInt(formData.get('kids_count') as string) || 0,
+      preferred_package: formData.get('package')
+    };
+
+    try {
+      const { error: dbError } = await db.from('kids_inquiries').insert(inquiryData);
+      if (dbError) throw dbError;
+      setIsSuccess(true);
+    } catch (err: any) {
+      console.error('Kids inquiry failed:', err);
+      setError('Could not submit inquiry to 16ueg_u4t4d. Please try again later.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   return (
     <div className="pt-24 pb-24 bg-white overflow-hidden">
-      {/* Hero */}
       <section className="container mx-auto px-4 md:px-6 mb-24 relative">
         <div className="bg-rustic-mint/30 rounded-[3rem] p-12 md:p-24 flex flex-col md:flex-row items-center gap-12">
           <div className="flex-1">
@@ -15,9 +45,9 @@ const Kids: React.FC = () => {
               A 16m² world of supervised wonder. Let your little explorers play while you savor your meal in peace.
             </p>
             <div className="flex gap-4">
-              <button className="bg-rustic-orange text-white px-8 py-4 rounded-full font-bold hover:bg-rustic-tan transition-all shadow-lg">
+              <a href="#birthday-inquiry" className="bg-rustic-orange text-white px-8 py-4 rounded-full font-bold hover:bg-rustic-tan transition-all shadow-lg">
                 Book a Birthday
-              </button>
+              </a>
             </div>
           </div>
           <div className="flex-1 relative">
@@ -26,92 +56,77 @@ const Kids: React.FC = () => {
               alt="Safe Kids Play Area" 
               className="rounded-3xl shadow-2xl rotate-3 border-8 border-white" 
             />
-            <div className="absolute -top-6 -right-6 bg-rustic-dark p-6 rounded-2xl shadow-xl flex flex-col items-center">
-              <span className="text-4xl font-bold text-rustic-orange">3-10</span>
-              <span className="text-xs font-bold text-rustic-mint uppercase tracking-widest">Ages</span>
+          </div>
+        </div>
+      </section>
+
+      <section id="birthday-inquiry" className="py-24 bg-rustic-cream/10 border-t border-rustic-mint/20">
+        <div className="container mx-auto px-4 md:px-6 max-w-4xl">
+          {error && (
+            <div className="mb-8 p-4 bg-red-50 border border-red-100 rounded-2xl flex items-center gap-3 text-red-600 animate-fadeIn">
+              <AlertCircle size={20} />
+              <span className="font-medium text-sm">{error}</span>
             </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Features */}
-      <section className="py-24 bg-rustic-cream/20">
-        <div className="container mx-auto px-4 md:px-6">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl font-bold mb-4 text-rustic-dark italic">Safety & Fun Combined</h2>
-            <p className="text-rustic-green">Our play area is designed for exploration and managed for total peace of mind.</p>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <Feature icon={<UserCheck size={32} />} title="Professional Childcare" desc="Our supervisors are trained in pediatric first aid and child engagement." />
-            <Feature icon={<Shield size={32} />} title="Safety First" desc="Sanitized equipment, soft edges, and high-visibility glass partitions." />
-            <Feature icon={<Timer size={32} />} title="Timed Access" desc="Play slots managed to ensure the zone never gets overcrowded." />
-          </div>
-        </div>
-      </section>
-
-      {/* Birthday Packages */}
-      <section className="py-24 container mx-auto px-4 md:px-6">
-        <h2 className="text-4xl font-bold mb-12 text-center text-rustic-dark italic">Unforgettable Birthday Packages</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
-          <Package 
-            name="The Mini Chef" 
-            price="R 185 / child" 
-            features={['Mini pizza making session', 'Supervised play (2 hours)', 'Custom birthday hat', 'Fruit juice boxes']} 
-            color="bg-rustic-mint/20"
-          />
-          <Package 
-            name="The Ultimate Explorer" 
-            price="R 250 / child" 
-            features={['Build-your-own pizza', 'Supervised play (Unlimited)', 'Theme decor included', 'Party packs & Ice cream']} 
-            color="bg-rustic-dark text-white"
-          />
-        </div>
-      </section>
-
-      {/* Activity Themes */}
-      <section className="bg-rustic-orange py-16 text-white">
-        <div className="container mx-auto px-4 md:px-6 flex flex-col md:flex-row items-center justify-between gap-8">
-          <div>
-            <h2 className="text-3xl font-bold mb-2 italic">Weekly Activity Themes</h2>
-            <p className="text-rustic-mint">Art, Science, Storytelling and more!</p>
-          </div>
-          <div className="flex gap-4 overflow-x-auto pb-4 w-full md:w-auto no-scrollbar">
-            {['Lego Week', 'Face Painting', 'Puppet Shows', 'Clay Modeling'].map(t => (
-              <div key={t} className="bg-white/10 px-6 py-3 rounded-xl whitespace-nowrap font-bold backdrop-blur-sm border border-white/20 hover:bg-white/20 transition-all cursor-default">
-                {t}
-              </div>
-            ))}
+          )}
+          <div className="bg-white rounded-[3rem] shadow-2xl overflow-hidden flex flex-col md:flex-row border border-gray-100">
+            <div className="bg-rustic-dark text-white p-12 md:w-1/3 flex flex-col justify-center">
+              <Sparkles className="text-rustic-orange mb-6" size={48} />
+              <h3 className="text-3xl font-bold mb-4 italic">Let's Celebrate!</h3>
+              <p className="text-rustic-mint/60 text-sm leading-relaxed">
+                Fill out our inquiry form and our party coordinator will reach out within 24 hours to help you plan the perfect day.
+              </p>
+            </div>
+            <div className="p-12 md:w-2/3">
+              {isSuccess ? (
+                <div className="h-full flex flex-col items-center justify-center text-center animate-fadeIn">
+                  <div className="w-20 h-20 bg-rustic-mint text-rustic-dark rounded-full flex items-center justify-center mb-6">
+                    <CheckCircle2 size={40} />
+                  </div>
+                  <h3 className="text-3xl font-bold mb-4 italic text-rustic-dark">Inquiry Sent!</h3>
+                  <p className="text-rustic-green mb-8">We'll be in touch soon.</p>
+                  <button onClick={() => setIsSuccess(false)} className="text-rustic-orange font-bold underline hover:text-rustic-tan transition-all">Send another inquiry</button>
+                </div>
+              ) : (
+                <form onSubmit={handleInquiry} className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Parent's Name</label>
+                      <input name="name" required type="text" className="w-full px-6 py-4 rounded-xl border border-gray-100 bg-gray-50 focus:border-rustic-orange outline-none" placeholder="Full Name" />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Email Address</label>
+                      <input name="email" required type="email" className="w-full px-6 py-4 rounded-xl border border-gray-100 bg-gray-50 focus:border-rustic-orange outline-none" placeholder="info@kgomos.co.za" />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Proposed Date</label>
+                      <input name="date" required type="date" className="w-full px-6 py-4 rounded-xl border border-gray-100 bg-gray-50 focus:border-rustic-orange outline-none" />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Approx. No. of Kids</label>
+                      <input name="kids_count" required type="number" className="w-full px-6 py-4 rounded-xl border border-gray-100 bg-gray-50 focus:border-rustic-orange outline-none" placeholder="e.g. 10" />
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Preferred Package</label>
+                    <select name="package" required className="w-full px-6 py-4 rounded-xl border border-gray-100 bg-gray-50 focus:border-rustic-orange outline-none appearance-none">
+                      <option>The Mini Chef (R185/pp)</option>
+                      <option>The Ultimate Explorer (R250/pp)</option>
+                      <option>Bespoke / Custom Theme</option>
+                    </select>
+                  </div>
+                  <button disabled={isSubmitting} type="submit" className="w-full bg-rustic-orange text-white py-5 rounded-xl font-bold text-lg hover:bg-rustic-tan transition-all flex items-center justify-center gap-3 disabled:opacity-50">
+                    {isSubmitting ? 'Sending...' : <><Send size={20} /> Submit Inquiry</>}
+                  </button>
+                </form>
+              )}
+            </div>
           </div>
         </div>
       </section>
     </div>
   );
 };
-
-const Feature = ({ icon, title, desc }: any) => (
-  <div className="bg-white p-10 rounded-3xl shadow-sm border border-rustic-mint/30 hover:shadow-lg transition-all group">
-    <div className="mb-6 text-rustic-orange group-hover:scale-110 transition-transform">{icon}</div>
-    <h3 className="text-xl font-bold mb-3 text-rustic-dark">{title}</h3>
-    <p className="text-rustic-green text-sm">{desc}</p>
-  </div>
-);
-
-const Package = ({ name, price, features, color }: any) => (
-  <div className={`p-10 rounded-[2rem] ${color} border border-rustic-mint/20 flex flex-col shadow-sm hover:shadow-xl transition-all`}>
-    <h3 className="text-2xl font-bold mb-2 italic">{name}</h3>
-    <p className="text-3xl font-black mb-8 text-rustic-orange">{price}</p>
-    <ul className="space-y-4 mb-10 flex-grow">
-      {features.map((f: string, i: number) => (
-        <li key={i} className="flex items-center gap-3">
-          <Sparkles size={16} className="text-rustic-tan" />
-          <span className="text-sm font-medium opacity-90">{f}</span>
-        </li>
-      ))}
-    </ul>
-    <button className={`py-4 rounded-xl font-bold border-2 transition-all ${color.includes('dark') ? 'bg-white text-rustic-dark border-white hover:bg-rustic-mint' : 'border-rustic-dark text-rustic-dark hover:bg-rustic-dark hover:text-white'}`}>
-      Select Package
-    </button>
-  </div>
-);
 
 export default Kids;
