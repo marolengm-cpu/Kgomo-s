@@ -1,7 +1,11 @@
-
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ShoppingBag, ChevronRight, MapPin, CreditCard, ShieldCheck, Timer, Bike, Utensils, CheckCircle2, Package, Map as MapIcon, RefreshCw, MessageCircle, User, Mail, AlertCircle, Smartphone, Wallet, Zap, QrCode, Split, Coins } from 'lucide-react';
+import {
+  ShoppingBag, ChevronRight, MapPin, CreditCard, ShieldCheck,
+  Timer, Bike, Utensils, CheckCircle2, Package, Map as MapIcon,
+  MessageCircle, User, Mail, AlertCircle, Smartphone, Wallet,
+  Zap, QrCode, Split, Coins, ArrowLeft
+} from 'lucide-react';
 import { CartItem } from '../types';
 import { db } from '../lib/db';
 
@@ -12,298 +16,483 @@ interface OrderingProps {
 
 type PaymentMethod = 'Card' | 'EFT' | 'ApplePay' | 'GooglePay' | 'SnapScan' | 'Zapper' | 'PayJustNow' | 'Crypto';
 
-const Ordering: React.FC<OrderingProps> = ({ cart, addToCart }) => {
-  const navigate = useNavigate();
+const Ordering: React.FC<OrderingProps> = ({ cart }) => {
   const [step, setStep] = useState(1);
-  const [trackingStatus, setTrackingStatus] = useState(0); 
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [lastUpdated, setLastUpdated] = useState(new Date());
+  const [trackingStatus, setTrackingStatus] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  
+
   const [customerName, setCustomerName] = useState('');
   const [customerEmail, setCustomerEmail] = useState('');
+  const [customerPhone, setCustomerPhone] = useState('');
   const [address, setAddress] = useState('');
-  const [userId, setUserId] = useState<string | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('Card');
+  const [orderId, setOrderId] = useState<string | null>(null);
 
-  const subtotal = cart.reduce((acc, i) => acc + (i.price * i.quantity), 0);
-  const deliveryFee = subtotal > 0 ? 35 : 0;
-  const total = subtotal + deliveryFee;
+  const [session, setSession] = useState<any>(null);
+  const navigate = useNavigate();
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
-    db.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) {
-        setUserId(session.user.id);
-        setCustomerEmail(session.user.email || '');
+    const fetchSession = async () => {
+      const { data } = await db.auth.getSession();
+      setSession(data.session);
+      if (data.session?.user) {
+        setCustomerName(data.session.user.user_metadata?.full_name || '');
+        setCustomerEmail(data.session.user.email || '');
       }
-    });
+    };
+    fetchSession();
+  }, []);
 
-    if (step === 3 && trackingStatus < 3) {
-      const timer = setTimeout(() => {
-        setTrackingStatus(prev => prev + 1);
-        setLastUpdated(new Date());
-      }, 20000);
-      return () => clearTimeout(timer);
+  useEffect(() => {
+    if (step === 3) {
+      // Simulate tracking progress
+      timerRef.current = setInterval(() => {
+        setTrackingStatus((prev) => (prev < 4 ? prev + 1 : prev));
+      }, 15000); // Progress every 15 seconds
     }
-  }, [step, trackingStatus]);
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+  }, [step]);
+
+  const total = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const deliveryFee = 35;
+  const grandTotal = total + deliveryFee;
 
   const handlePlaceOrder = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!userId) {
-      setError("Please login to place an order and track your history.");
+    if (cart.length === 0) {
+      setError('Your cart is empty');
       return;
     }
-    
+
     setIsSubmitting(true);
     setError(null);
 
     try {
-      const { data: orderData, error: orderError } = await db
+      const { data: order, error: orderError } = await db
         .from('orders')
         .insert({
-          user_id: userId,
-          total_amount: total,
-          delivery_address: address,
-          status: 'Pending',
-          payment_method: paymentMethod
+          user_id: session?.user?.id || 'guest-' + Math.random().toString(36).substr(2, 9),
+          customer_name: customerName,
+          customer_email: customerEmail,
+          customer_phone: customerPhone,
+          address,
+          total: grandTotal,
+          status: 'pending',
+          payment_method: paymentMethod,
+          items: cart,
         })
         .select()
         .single();
 
       if (orderError) throw orderError;
 
-      const details = cart.map(item => ({
-        order_id: orderData.id,
-        menu_item_id: item.menuItemId,
-        item_name: item.name,
-        quantity: item.quantity,
-        price_at_time_of_order: item.price
-      }));
-
-      const { error: detailsError } = await db.from('order_details').insert(details);
-      if (detailsError) throw detailsError;
-
+      setOrderId(order.id);
       setStep(3);
-      setTrackingStatus(0);
-      setLastUpdated(new Date());
     } catch (err: any) {
-      setError(err.message || 'An unexpected error occurred while placing your order.');
+      setError(err.message || 'Failed to place order. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const getArrivalTime = () => {
-    if (trackingStatus === 0) return "25-30 mins";
-    if (trackingStatus === 1) return "15-20 mins";
-    if (trackingStatus === 2) return "5-8 mins";
-    return "Delivered";
-  };
-
-  if (step === 3) {
+  if (cart.length === 0 && step < 3) {
     return (
-      <div className="pt-24 pb-24 bg-rustic-cream min-h-screen">
-        <div className="container mx-auto px-4 md:px-6 max-w-5xl">
-          <div className="bg-white rounded-[3.5rem] shadow-2xl overflow-hidden border border-gray-100 flex flex-col animate-scaleIn">
-            <div className="bg-rustic-dark p-10 md:p-14 text-white relative">
-              <div className="absolute top-0 left-0 w-full h-1.5 bg-white/10">
-                <div 
-                  className="h-full bg-rustic-orange transition-all duration-1000 ease-in-out shadow-[0_0_10px_rgba(215,130,88,0.8)]" 
-                  style={{ width: `${(trackingStatus + 1) * 25}%` }}
-                ></div>
-              </div>
-              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 relative z-10">
-                <div>
-                  <h1 className="text-4xl md:text-5xl font-bold mb-3 italic text-rustic-orange">Track Your Feast</h1>
-                  <div className="flex items-center gap-3 text-rustic-mint/60">
-                    <span className="bg-white/10 px-3 py-1 rounded-full text-[10px] font-bold tracking-widest uppercase">Live Updates</span>
-                    <span className="w-1.5 h-1.5 rounded-full bg-rustic-orange animate-pulse"></span>
-                    <span className="text-sm">En Route</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div className="p-8 md:p-14">
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
-                <div className="lg:col-span-7 space-y-12">
-                  <div className="relative pl-10 border-l-2 border-dashed border-gray-100 py-2">
-                    <StatusItem active={trackingStatus >= 0} current={trackingStatus === 0} icon={<CheckCircle2 />} title="Order Received" desc={trackingStatus === 0 ? "We've got your order! Our kitchen is getting ready." : "Confirmed and processed."} />
-                    <StatusItem active={trackingStatus >= 1} current={trackingStatus === 1} icon={<Utensils />} title="Kitchen Magic" desc={trackingStatus === 1 ? "Chef Kgola is hand-stretching your dough and firing the oven." : "Awaiting the chef's touch."} />
-                    <StatusItem active={trackingStatus >= 2} current={trackingStatus === 2} icon={<Bike />} title="On the Road" desc={trackingStatus === 2 ? "Your driver is zooming through Pretoria East. Almost there!" : "Preparing for pickup."} />
-                    <StatusItem active={trackingStatus >= 3} current={trackingStatus === 3} icon={<Package />} title="Bon Appétit!" desc={trackingStatus === 3 ? "Your wood-fired feast has been delivered. Enjoy!" : "The best part is yet to come."} />
-                  </div>
-                </div>
-                <div className="lg:col-span-5 space-y-8">
-                  <div className="bg-rustic-cream p-10 rounded-[3rem] border border-rustic-mint/40 text-center relative overflow-hidden group">
-                    <div className="relative z-10">
-                      <span className="text-[10px] font-black text-rustic-green uppercase tracking-[0.4em] mb-4 block">ETA to Your Door</span>
-                      <div className="text-7xl font-black text-rustic-dark mb-4 tracking-tighter">
-                        {trackingStatus === 3 ? 'Enjoy!' : getArrivalTime().split(' ')[0]}
-                      </div>
-                      <div className="flex items-center justify-center gap-2 text-rustic-orange font-bold text-sm italic">
-                        <Timer size={18} />
-                        <span>{trackingStatus === 3 ? 'Order Complete' : getArrivalTime().split(' ')[1] || ''}</span>
-                      </div>
-                    </div>
-                    <MapIcon className="absolute inset-0 w-full h-full text-rustic-dark opacity-5 pointer-events-none group-hover:scale-110 transition-transform duration-1000" />
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
+      <div className="pt-32 pb-24 px-4 bg-cream min-h-screen flex flex-col items-center justify-center text-center">
+        <div className="w-24 h-24 bg-gold/10 rounded-[2rem] flex items-center justify-center mb-8 animate-bounceIn">
+          <ShoppingBag size={48} className="text-gold" />
         </div>
+        <h1 className="text-4xl font-bold text-dark mb-4 font-serif italic">Your cart is empty</h1>
+        <p className="text-muted mb-10 max-w-md font-medium">Looks like you haven't added any of our delicious wood-fired dishes yet.</p>
+        <Link 
+          to="/menu" 
+          className="bg-gold text-dark px-12 py-5 rounded-2xl font-black uppercase tracking-widest text-[10px] hover:bg-dark hover:text-white transition-all shadow-2xl"
+        >
+          Browse Menu
+        </Link>
       </div>
     );
   }
 
   return (
-    <div className="pt-32 pb-24 bg-rustic-cream min-h-screen">
+    <div className="pt-32 pb-24 bg-cream min-h-screen">
       <div className="container mx-auto px-4 md:px-6 max-w-6xl">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 mb-12 animate-fadeIn">
-          <div className="flex items-center gap-4">
-            <StepIndicator step={1} currentStep={step} label="Your Order" />
-            <ChevronRight size={20} className="text-gray-300" />
-            <StepIndicator step={2} currentStep={step} label="Checkout" />
-          </div>
+        {/* Step Indicator */}
+        <div className="flex items-center justify-center mb-16 gap-4 md:gap-12">
+          <StepIndicator step={1} current={step} label="Review" />
+          <div className={`h-0.5 w-12 md:w-24 transition-all duration-700 ${step > 1 ? 'bg-gold' : 'bg-gold/10'}`} />
+          <StepIndicator step={2} current={step} label="Checkout" />
+          <div className={`h-0.5 w-12 md:w-24 transition-all duration-700 ${step > 2 ? 'bg-gold' : 'bg-gold/10'}`} />
+          <StepIndicator step={3} current={step} label="Tracking" />
         </div>
 
-        {error && (
-          <div className="mb-8 p-4 bg-red-50 border border-red-100 rounded-2xl flex items-center gap-3 text-red-600 animate-fadeIn">
-            <AlertCircle size={20} />
-            <span className="font-medium text-sm">{error}</span>
-          </div>
-        )}
-
-        {cart.length === 0 && step === 1 ? (
-          <div className="py-20 flex flex-col items-center justify-center text-center animate-slideUp">
-            <div className="p-8 bg-white rounded-full mb-6 shadow-sm border border-rustic-mint/30">
-              <ShoppingBag size={80} className="text-rustic-tan opacity-40" />
-            </div>
-            <h1 className="text-3xl font-bold mb-4 italic text-rustic-dark">Your bag is empty.</h1>
-            <p className="text-rustic-green mb-8 max-w-sm mx-auto">Explore our menu and add some artisanal wood-fired goodness to your life.</p>
-            <Link to="/menu" className="bg-rustic-orange text-white px-10 py-4 rounded-full font-bold hover:bg-rustic-tan transition-all shadow-lg">View Menu</Link>
-          </div>
-        ) : (
-          <form onSubmit={handlePlaceOrder} className="grid grid-cols-1 lg:grid-cols-3 gap-12 animate-fadeIn">
+        {step === 1 && (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-10 animate-fadeIn">
             <div className="lg:col-span-2 space-y-8">
-              {step === 1 ? (
-                <div className="bg-white p-8 md:p-12 rounded-[3rem] shadow-sm border border-gray-100">
-                  <h2 className="text-3xl font-bold mb-8 italic text-rustic-dark">Review Your Feast</h2>
-                  <div className="divide-y divide-gray-100">
-                    {cart.map(item => (
-                      <div key={item.id} className="py-6 flex justify-between items-center group">
-                        <div className="flex flex-col">
-                          <h4 className="font-bold text-lg text-rustic-dark group-hover:text-rustic-orange transition-colors italic">{item.name}</h4>
-                          <p className="text-gray-400 text-sm font-medium">Quantity: {item.quantity}</p>
-                        </div>
-                        <span className="font-black text-rustic-orange text-lg">R {(item.price * item.quantity).toFixed(2)}</span>
-                      </div>
-                    ))}
-                  </div>
+              <div className="bg-white rounded-[2.5rem] p-8 md:p-12 shadow-2xl border border-gold/5">
+                <div className="flex items-center justify-between mb-10">
+                  <h2 className="text-3xl font-bold text-dark font-serif italic flex items-center gap-4">
+                    <Utensils className="text-gold" size={28} /> Your Selection
+                  </h2>
+                  <Link to="/menu" className="text-[10px] font-black uppercase tracking-widest text-gold hover:text-dark transition-colors flex items-center gap-2">
+                    Add More <PlusIcon size={14} />
+                  </Link>
                 </div>
-              ) : (
-                <div className="space-y-6">
-                  <div className="bg-white p-8 md:p-12 rounded-[3rem] shadow-sm border border-gray-100">
-                    <h2 className="text-3xl font-bold mb-8 flex items-center gap-3 text-rustic-dark italic"><MapPin className="text-rustic-orange" /> Delivery Details</h2>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-                      <div className="space-y-2">
-                        <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1 flex items-center gap-1"><User size={12} /> Full Name</label>
-                        <input required value={customerName} onChange={e => setCustomerName(e.target.value)} type="text" className="w-full px-6 py-4 rounded-xl border border-gray-100 bg-gray-50 focus:border-rustic-orange outline-none" />
+                <div className="space-y-8">
+                  {cart.map((item) => (
+                    <div key={item.id} className="flex items-center gap-6 py-6 border-b border-gold/10 last:border-0 group">
+                      <div className="relative overflow-hidden rounded-2xl w-24 h-24 shrink-0 shadow-lg">
+                        <img src={item.image} alt={item.name} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
                       </div>
-                      <div className="space-y-2">
-                        <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1 flex items-center gap-1"><Mail size={12} /> Email Address</label>
-                        <input required value={customerEmail} onChange={e => setCustomerEmail(e.target.value)} type="email" className="w-full px-6 py-4 rounded-xl border border-gray-100 bg-gray-50 focus:border-rustic-orange outline-none" />
+                      <div className="flex-1">
+                        <h3 className="text-lg font-bold text-dark mb-1">{item.name}</h3>
+                        <p className="text-xs font-black uppercase tracking-widest text-muted">Quantity: {item.quantity}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-xl font-black text-gold">R {(item.price * item.quantity).toFixed(2)}</p>
                       </div>
                     </div>
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Street Address</label>
-                      <input required value={address} onChange={e => setAddress(e.target.value)} type="text" className="w-full px-6 py-4 rounded-xl border border-gray-100 bg-gray-50 focus:border-rustic-orange outline-none" placeholder="Pretoria East Area" />
-                    </div>
-                  </div>
-                  
-                  <div className="bg-white p-8 md:p-12 rounded-[3rem] shadow-sm border border-gray-100">
-                    <h2 className="text-3xl font-bold mb-8 flex items-center gap-3 text-rustic-dark italic"><Wallet className="text-rustic-orange" /> Payment Method</h2>
-                    
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
-                      <PaymentOption active={paymentMethod === 'Card'} onClick={() => setPaymentMethod('Card')} icon={<CreditCard size={20} />} title="Credit/Debit Card" desc="Safe & Secure" />
-                      <PaymentOption active={paymentMethod === 'EFT'} onClick={() => setPaymentMethod('EFT')} icon={<Zap size={20} />} title="Instant EFT" desc="Via OZOW / PayFast" />
-                      <PaymentOption active={paymentMethod === 'SnapScan'} onClick={() => setPaymentMethod('SnapScan')} icon={<QrCode size={20} />} title="SnapScan" desc="QR Payment" />
-                      <PaymentOption active={paymentMethod === 'Zapper'} onClick={() => setPaymentMethod('Zapper')} icon={<QrCode size={20} />} title="Zapper" desc="Scan to Pay" />
-                      <PaymentOption active={paymentMethod === 'ApplePay'} onClick={() => setPaymentMethod('ApplePay')} icon={<Smartphone size={20} />} title="Apple Pay" desc="Fast & Private" />
-                      <PaymentOption active={paymentMethod === 'PayJustNow'} onClick={() => setPaymentMethod('PayJustNow')} icon={<Split size={20} />} title="PayJustNow" desc="3x Interest-Free" />
-                      <PaymentOption active={paymentMethod === 'Crypto'} onClick={() => setPaymentMethod('Crypto')} icon={<Coins size={20} />} title="Bitcoin" desc="Lightning Network" />
-                    </div>
-
-                    <div className="animate-fadeIn p-8 bg-gray-50 rounded-3xl text-center border border-gray-100">
-                      <p className="text-rustic-green italic font-medium">Your order will be processed securely for database: 16ueg_u4t4d</p>
-                    </div>
-                  </div>
+                  ))}
                 </div>
-              )}
+              </div>
             </div>
 
-            <div className="space-y-6">
-              <div className="bg-rustic-dark text-white p-10 rounded-[3rem] shadow-2xl border border-white/5 sticky top-28">
-                <h3 className="text-xl font-bold mb-8 italic text-rustic-orange border-b border-white/5 pb-4">Order Summary</h3>
-                <div className="space-y-4 mb-10">
-                  <div className="flex justify-between text-rustic-mint/60">
+            <div className="space-y-8">
+              <div className="bg-dark text-white rounded-[2.5rem] p-10 shadow-2xl sticky top-32 border border-gold/10 overflow-hidden">
+                <div className="absolute top-0 right-0 w-64 h-64 bg-gold opacity-[0.03] rounded-full -translate-y-1/2 translate-x-1/2 blur-[80px]"></div>
+                <h2 className="text-2xl font-bold mb-8 font-serif italic text-gold relative z-10">Order Summary</h2>
+                <div className="space-y-5 mb-10 relative z-10">
+                  <div className="flex justify-between text-white/60 font-medium">
                     <span>Subtotal</span>
-                    <span>R {subtotal.toFixed(2)}</span>
+                    <span>R {total.toFixed(2)}</span>
                   </div>
-                  <div className="flex justify-between text-rustic-mint/60">
+                  <div className="flex justify-between text-white/60 font-medium">
                     <span>Delivery Fee</span>
                     <span>R {deliveryFee.toFixed(2)}</span>
                   </div>
-                  <div className="pt-8 border-t border-white/10 flex justify-between font-bold text-4xl">
+                  <div className="h-px bg-white/10 my-6" />
+                  <div className="flex justify-between text-2xl font-black text-gold">
                     <span>Total</span>
-                    <span className="text-rustic-orange font-black italic">R {total.toFixed(2)}</span>
+                    <span>R {grandTotal.toFixed(2)}</span>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setStep(2)}
+                  className="w-full bg-gold text-dark py-5 rounded-2xl font-black uppercase tracking-[0.2em] text-[10px] hover:bg-white transition-all shadow-2xl flex items-center justify-center gap-3 relative z-10 group"
+                >
+                  Proceed to Checkout <ChevronRight size={18} className="group-hover:translate-x-1 transition-transform" />
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {step === 2 && (
+          <form onSubmit={handlePlaceOrder} className="max-w-5xl mx-auto animate-fadeIn">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
+              <div className="space-y-8">
+                <div className="bg-white rounded-[2.5rem] p-10 shadow-2xl border border-gold/5">
+                  <h2 className="text-2xl font-bold text-dark mb-8 font-serif italic flex items-center gap-4">
+                    <User className="text-gold" size={24} /> Delivery Details
+                  </h2>
+                  <div className="space-y-6">
+                    <div className="space-y-2">
+                      <label className="block text-[10px] font-black uppercase tracking-widest text-muted ml-1">Full Name *</label>
+                      <input
+                        required
+                        type="text"
+                        value={customerName}
+                        onChange={(e) => setCustomerName(e.target.value)}
+                        className="w-full bg-cream/30 border-0 rounded-2xl px-6 py-4 focus:ring-2 focus:ring-gold transition-all outline-none font-medium text-sm"
+                        placeholder="Enter your name"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="block text-[10px] font-black uppercase tracking-widest text-muted ml-1">Email Address *</label>
+                      <input
+                        required
+                        type="email"
+                        value={customerEmail}
+                        onChange={(e) => setCustomerEmail(e.target.value)}
+                        className="w-full bg-cream/30 border-0 rounded-2xl px-6 py-4 focus:ring-2 focus:ring-gold transition-all outline-none font-medium text-sm"
+                        placeholder="you@example.com"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="block text-[10px] font-black uppercase tracking-widest text-muted ml-1">Phone Number *</label>
+                      <input
+                        required
+                        type="tel"
+                        value={customerPhone}
+                        onChange={(e) => setCustomerPhone(e.target.value)}
+                        className="w-full bg-cream/30 border-0 rounded-2xl px-6 py-4 focus:ring-2 focus:ring-gold transition-all outline-none font-medium text-sm"
+                        placeholder="08X XXX XXXX"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="block text-[10px] font-black uppercase tracking-widest text-muted ml-1">Delivery Address *</label>
+                      <textarea
+                        required
+                        value={address}
+                        onChange={(e) => setAddress(e.target.value)}
+                        className="w-full bg-cream/30 border-0 rounded-2xl px-6 py-4 focus:ring-2 focus:ring-gold transition-all h-32 resize-none outline-none font-medium text-sm"
+                        placeholder="Street, Suburb, City, Postal Code"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-8">
+                <div className="bg-white rounded-[2.5rem] p-10 shadow-2xl border border-gold/5">
+                  <h2 className="text-2xl font-bold text-dark mb-8 font-serif italic flex items-center gap-4">
+                    <CreditCard className="text-gold" size={24} /> Payment Method
+                  </h2>
+                  <div className="grid grid-cols-2 gap-4">
+                    <PaymentOption 
+                      id="Card" 
+                      label="Card" 
+                      icon={<CreditCard size={20} />} 
+                      selected={paymentMethod === 'Card'} 
+                      onClick={() => setPaymentMethod('Card')} 
+                    />
+                    <PaymentOption 
+                      id="EFT" 
+                      label="Instant EFT" 
+                      icon={<Zap size={20} />} 
+                      selected={paymentMethod === 'EFT'} 
+                      onClick={() => setPaymentMethod('EFT')} 
+                    />
+                    <PaymentOption 
+                      id="SnapScan" 
+                      label="SnapScan" 
+                      icon={<QrCode size={20} />} 
+                      selected={paymentMethod === 'SnapScan'} 
+                      onClick={() => setPaymentMethod('SnapScan')} 
+                    />
+                    <PaymentOption 
+                      id="Zapper" 
+                      label="Zapper" 
+                      icon={<QrCode size={20} />} 
+                      selected={paymentMethod === 'Zapper'} 
+                      onClick={() => setPaymentMethod('Zapper')} 
+                    />
+                    <PaymentOption 
+                      id="ApplePay" 
+                      label="Apple Pay" 
+                      icon={<Smartphone size={20} />} 
+                      selected={paymentMethod === 'ApplePay'} 
+                      onClick={() => setPaymentMethod('ApplePay')} 
+                    />
+                    <PaymentOption 
+                      id="PayJustNow" 
+                      label="PayJustNow" 
+                      icon={<Split size={20} />} 
+                      selected={paymentMethod === 'PayJustNow'} 
+                      onClick={() => setPaymentMethod('PayJustNow')} 
+                    />
+                    <PaymentOption 
+                      id="Crypto" 
+                      label="Crypto" 
+                      icon={<Coins size={20} />} 
+                      selected={paymentMethod === 'Crypto'} 
+                      onClick={() => setPaymentMethod('Crypto')} 
+                    />
+                  </div>
+
+                  <div className="mt-10 p-5 bg-green/5 rounded-2xl border border-green/10 flex items-start gap-4">
+                    <ShieldCheck className="text-green shrink-0" size={24} />
+                    <p className="text-[10px] text-green font-black uppercase tracking-widest leading-relaxed">
+                      Your transaction is secured with 256-bit SSL encryption. We do not store your card details.
+                    </p>
                   </div>
                 </div>
 
-                {step === 1 ? (
-                  <button type="button" onClick={() => setStep(2)} className="w-full bg-rustic-orange text-white py-5 rounded-2xl font-bold text-lg hover:bg-rustic-tan transition-all">
-                    Proceed to Checkout
-                  </button>
-                ) : (
-                  <button disabled={isSubmitting} type="submit" className="w-full bg-rustic-orange text-white py-5 rounded-2xl font-bold text-lg hover:bg-rustic-tan transition-all flex items-center justify-center gap-2 disabled:opacity-50">
-                    {isSubmitting ? 'Processing...' : <><ShieldCheck size={20} /> Place Order Now</>}
-                  </button>
+                {error && (
+                  <div className="bg-rust/5 text-rust p-5 rounded-2xl flex items-center gap-4 border border-rust/10 animate-shake">
+                    <AlertCircle size={24} className="shrink-0" />
+                    <p className="text-sm font-bold uppercase tracking-widest">{error}</p>
+                  </div>
                 )}
+
+                <div className="space-y-4">
+                  <button
+                    type="submit"
+                    disabled={isSubmitting}
+                    className="w-full bg-gold text-dark py-5 rounded-2xl font-black uppercase tracking-[0.2em] text-[10px] hover:bg-dark hover:text-white transition-all shadow-2xl flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed group"
+                  >
+                    {isSubmitting ? (
+                      <>
+                        <div className="w-5 h-5 border-2 border-dark border-t-transparent rounded-full animate-spin" />
+                        Processing...
+                      </>
+                    ) : (
+                      <>Complete Order · R {grandTotal.toFixed(2)} <ChevronRight size={18} className="group-hover:translate-x-1 transition-transform" /></>
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setStep(1)}
+                    className="w-full text-muted text-[10px] font-black uppercase tracking-[0.2em] hover:text-dark transition-colors flex items-center justify-center gap-2"
+                  >
+                    <ArrowLeft size={14} /> Back to Review
+                  </button>
+                </div>
               </div>
             </div>
           </form>
+        )}
+
+        {step === 3 && (
+          <div className="max-w-4xl mx-auto animate-fadeIn">
+            <div className="bg-white rounded-[3rem] p-10 md:p-16 shadow-2xl border border-gold/5 overflow-hidden relative">
+              <div className="absolute top-0 left-0 w-full h-2 bg-gold/10">
+                <div 
+                  className="h-full bg-gold transition-all duration-1000 ease-out" 
+                  style={{ width: `${(trackingStatus + 1) * 25}%` }}
+                />
+              </div>
+
+              <div className="text-center mb-16">
+                <div className="w-24 h-24 bg-green/10 rounded-[2rem] flex items-center justify-center mx-auto mb-8 animate-bounceIn">
+                  <CheckCircle2 size={48} className="text-green" />
+                </div>
+                <h2 className="text-5xl font-bold text-dark mb-4 font-serif italic">Order Confirmed!</h2>
+                <p className="text-muted font-medium">Order ID: <span className="text-dark font-mono font-bold tracking-widest">#{orderId?.slice(0, 8).toUpperCase()}</span></p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-16">
+                <div className="space-y-10">
+                  <h3 className="text-2xl font-bold text-dark font-serif italic border-b border-gold/10 pb-6">Live Tracking</h3>
+                  <div className="space-y-10 relative">
+                    <div className="absolute left-[23px] top-2 bottom-2 w-0.5 bg-gold/10" />
+                    <StatusItem 
+                      icon={<Utensils size={20} />} 
+                      label="Preparing your meal" 
+                      active={trackingStatus >= 0} 
+                      completed={trackingStatus > 0} 
+                    />
+                    <StatusItem 
+                      icon={<Package size={20} />} 
+                      label="Quality check & packing" 
+                      active={trackingStatus >= 1} 
+                      completed={trackingStatus > 1} 
+                    />
+                    <StatusItem 
+                      icon={<Bike size={20} />} 
+                      label="Out for delivery" 
+                      active={trackingStatus >= 2} 
+                      completed={trackingStatus > 2} 
+                    />
+                    <StatusItem 
+                      icon={<MapPin size={20} />} 
+                      label="Arrived at destination" 
+                      active={trackingStatus >= 3} 
+                      completed={trackingStatus > 3} 
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-10">
+                  <div className="bg-cream/50 rounded-[2.5rem] p-10 border border-gold/5 shadow-inner">
+                    <div className="flex items-center justify-between mb-8">
+                      <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 rounded-2xl bg-gold/10 flex items-center justify-center">
+                          <Timer className="text-gold" size={24} />
+                        </div>
+                        <span className="font-bold text-dark font-serif text-lg">Estimated Arrival</span>
+                      </div>
+                      <span className="text-3xl font-black text-gold">25-35 min</span>
+                    </div>
+                    <div className="flex items-center gap-5 p-5 bg-white rounded-2xl shadow-xl border border-gold/5">
+                      <div className="w-14 h-14 rounded-2xl bg-gold/10 flex items-center justify-center shrink-0">
+                        <Bike className="text-gold" size={28} />
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted mb-1">Your Courier</p>
+                        <p className="font-bold text-dark text-lg">Thabo M. · 4.9★</p>
+                      </div>
+                      <button className="p-4 bg-cream rounded-2xl hover:bg-gold hover:text-dark transition-all shadow-sm">
+                        <MessageCircle size={22} />
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-6">
+                    <button 
+                      onClick={() => navigate('/')}
+                      className="flex-1 border-2 border-gold text-gold py-5 rounded-2xl font-black uppercase tracking-widest text-[10px] hover:bg-gold hover:text-dark transition-all shadow-xl"
+                    >
+                      Home
+                    </button>
+                    <button 
+                      onClick={() => navigate('/orders')}
+                      className="flex-1 bg-dark text-white py-5 rounded-2xl font-black uppercase tracking-widest text-[10px] hover:bg-gold hover:text-dark transition-all shadow-2xl"
+                    >
+                      View History
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         )}
       </div>
     </div>
   );
 };
 
-const PaymentOption = ({ active, onClick, icon, title, desc }: any) => (
-  <button type="button" onClick={onClick} className={`p-6 rounded-3xl border-2 transition-all text-left flex flex-col gap-2 group ${active ? 'border-rustic-orange bg-rustic-orange/5 shadow-md' : 'border-gray-100 bg-white hover:border-gray-200'}`}>
-    <div className={`p-2 rounded-xl w-fit ${active ? 'bg-rustic-orange text-white' : 'bg-gray-100 text-gray-500 group-hover:bg-gray-200'}`}>{icon}</div>
-    <div>
-      <p className={`font-bold text-sm ${active ? 'text-rustic-dark' : 'text-gray-600'}`}>{title}</p>
-      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{desc}</p>
+const StepIndicator = ({ step, current, label }: { step: number; current: number; label: string }) => (
+  <div className="flex flex-col items-center gap-3 group">
+    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black transition-all duration-700 ${
+      current >= step ? 'bg-gold text-dark shadow-2xl shadow-gold/20 scale-110' : 'bg-gold/10 text-gold/40'
+    }`}>
+      {current > step ? <CheckCircle2 size={24} /> : step}
     </div>
+    <span className={`text-[10px] font-black uppercase tracking-[0.3em] transition-colors duration-700 ${current >= step ? 'text-dark' : 'text-muted'}`}>
+      {label}
+    </span>
+  </div>
+);
+
+const PaymentOption = ({ id, label, icon, selected, onClick }: any) => (
+  <button
+    type="button"
+    onClick={onClick}
+    className={`flex flex-col items-center justify-center gap-4 p-6 rounded-2xl border-2 transition-all group ${
+      selected 
+        ? 'border-gold bg-gold/5 text-gold shadow-xl' 
+        : 'border-gold/10 text-muted hover:border-gold/30 hover:bg-gold/5'
+    }`}
+  >
+    <div className={`transition-transform duration-500 ${selected ? 'scale-110' : 'group-hover:scale-110'}`}>
+      {icon}
+    </div>
+    <span className="text-[10px] font-black uppercase tracking-[0.2em]">{label}</span>
   </button>
 );
 
-const StatusItem = ({ active, current, icon, title, desc }: any) => (
-  <div className="relative mb-12">
-    <div className={`absolute -left-[3.15rem] top-0 p-3 rounded-2xl transition-all duration-500 ${active ? 'bg-rustic-orange text-white shadow-xl scale-110' : 'bg-gray-100 text-gray-400'}`}>{React.cloneElement(icon, { size: 24 })}</div>
-    <div className={`transition-all duration-500 ${current ? 'scale-105 origin-left' : ''}`}>
-      <h3 className={`text-xl font-bold italic mb-1 ${active ? 'text-rustic-dark' : 'text-gray-300'}`}>{title}</h3>
-      <p className={`text-sm ${active ? 'text-rustic-green' : 'text-gray-300'}`}>{desc}</p>
+const StatusItem = ({ icon, label, active, completed }: any) => (
+  <div className={`flex items-center gap-6 transition-all duration-700 ${active ? 'opacity-100 translate-x-0' : 'opacity-30 translate-x-6'}`}>
+    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center z-10 transition-all duration-700 ${
+      completed ? 'bg-green text-white shadow-xl shadow-green/10' : active ? 'bg-gold text-dark animate-pulse shadow-2xl shadow-gold/20' : 'bg-gold/10 text-gold/40'
+    }`}>
+      {completed ? <CheckCircle2 size={22} /> : icon}
     </div>
+    <span className={`text-lg font-bold transition-colors duration-700 font-serif italic ${active ? 'text-dark' : 'text-muted'}`}>
+      {label}
+    </span>
   </div>
 );
 
-const StepIndicator = ({ step, currentStep, label }: any) => (
-  <div className={`flex items-center gap-3 font-bold transition-colors ${currentStep === step ? 'text-rustic-orange' : 'text-gray-400'}`}>
-    <span className={`w-10 h-10 rounded-2xl border-2 border-current flex items-center justify-center text-sm ${currentStep === step ? 'bg-rustic-orange text-white border-rustic-orange' : ''}`}>{step}</span>
-    <span className="text-sm uppercase tracking-widest">{label}</span>
-  </div>
+const PlusIcon = ({ size }: { size: number }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+    <line x1="12" y1="5" x2="12" y2="19"></line>
+    <line x1="5" y1="12" x2="19" y2="12"></line>
+  </svg>
 );
 
 export default Ordering;

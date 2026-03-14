@@ -3,34 +3,57 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Kgomo's | Premium Family Dining & Meal Prep</title>
+    <title>Kgomo's | Premium Family Dining — Pretoria East</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400;1,700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;0,700;1,400;1,600&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
     <script>
       tailwind.config = {
         theme: {
           extend: {
             colors: {
-              rustic: {
-                green: '#778979',
-                mint: '#ccdcc1',
-                cream: '#fdfbf7',
-                tan: '#a9916b',
-                orange: '#d78258',
-                dark: '#3d2b1f',
-              }
+              gold: {
+                DEFAULT: '#C4963A',
+                light: '#E8C97A',
+                pale: '#F5ECD7',
+              },
+              dark: '#0F0C07',
+              charcoal: '#1C1810',
+              brown: '#2E2016',
+              cream: '#FAF7F2',
+              rust: '#8B3A1E',
+              green: '#2D5A27',
+              text: '#2A1F0E',
+              muted: '#7A6A52',
             },
             fontFamily: {
-              serif: ['Playfair Display', 'serif'],
-              sans: ['Inter', 'sans-serif'],
+              serif: ['Cormorant Garamond', 'serif'],
+              sans: ['DM Sans', 'sans-serif'],
             },
             animation: {
               fadeIn: 'fadeIn 0.8s ease-out forwards',
               slideUp: 'slideUp 0.6s ease-out forwards',
               scaleIn: 'scaleIn 0.4s ease-out forwards',
               bounceIn: 'bounceIn 1s cubic-bezier(0.36, 0, 0.66, -0.56) forwards',
+              heroZoom: 'heroZoom 20s ease-in-out infinite alternate',
+              float: 'float 6s ease-in-out infinite',
+              shimmer: 'shimmer 2s linear infinite',
+              shake: 'shake 0.5s cubic-bezier(.36,.07,.19,.97) both',
             },
             keyframes: {
+              float: {
+                '0%, 100%': { transform: 'translateY(0)' },
+                '50%': { transform: 'translateY(-10px)' },
+              },
+              shimmer: {
+                '0%': { backgroundPosition: '-200% 0' },
+                '100%': { backgroundPosition: '200% 0' },
+              },
+              shake: {
+                '10%, 90%': { transform: 'translate3d(-1px, 0, 0)' },
+                '20%, 80%': { transform: 'translate3d(2px, 0, 0)' },
+                '30%, 50%, 70%': { transform: 'translate3d(-4px, 0, 0)' },
+                '40%, 60%': { transform: 'translate3d(4px, 0, 0)' },
+              },
               fadeIn: {
                 '0%': { opacity: '0' },
                 '100%': { opacity: '1' },
@@ -46,6 +69,10 @@
               bounceIn: {
                 '0%': { transform: 'scale(0.8)', opacity: '0' },
                 '100%': { transform: 'scale(1)', opacity: '1' },
+              },
+              heroZoom: {
+                'from': { transform: 'scale(1.05)' },
+                'to': { transform: 'scale(1)' },
               }
             }
           }
@@ -54,11 +81,13 @@
     </script>
     <style>
         body {
-            font-family: 'Inter', sans-serif;
+            font-family: 'DM Sans', sans-serif;
             -webkit-font-smoothing: antialiased;
+            background-color: #FAF7F2;
+            color: #2A1F0E;
         }
-        h1, h2, h3, .font-serif {
-            font-family: 'Playfair Display', serif;
+        h1, h2, h3, h4, .font-serif {
+            font-family: 'Cormorant Garamond', serif;
         }
         .no-scrollbar::-webkit-scrollbar {
             display: none;
@@ -80,8 +109,10 @@
   }
 }
 </script>
+<!-- index.css removed as it is missing and Tailwind is handled via CDN -->
 </head>
-<body class="bg-rustic-cream text-rustic-dark overflow-x-hidden">
+<body class="bg-cream text-dark overflow-x-hidden">
     <div id="root"></div>
+<script type="module" src="/index.tsx"></script>
 </body>
 </html>
